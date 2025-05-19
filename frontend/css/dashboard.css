@@ -1,0 +1,51 @@
+.navbar-top {
+    background-color: #56b6b6;
+    border-radius: 7px;
+}
+
+.navbar-list {
+    list-style-type: none;
+    margin: 0;
+    padding: 0;
+    overflow: hidden;
+    border-radius: 7px;
+}
+
+.navbar-list-item {
+    float: left;
+    border-radius: 7px;
+}
+
+.navbar-list-item-text {
+    display: block;
+    color: white;
+    text-align: center;
+    padding: 14px 16px;
+    text-decoration: none;
+    font-family: Nunito;
+}
+
+.navbar-list-item-text:hover {
+    background-color: #299494;
+    border-radius: 7px;
+}
+
+.navbar-list-item-active {
+    background-color: #1dc5c5;
+    float: left;
+    border-radius: 7px;
+}
+
+.navbar-list-item-logout {
+    float: right;
+    border-radius: 7px;
+}
+
+.navbar-list-item-logout-text {
+    display: block;
+    color: white;
+    text-align: center;
+    padding: 14px 16px;
+    text-decoration: none;
+    font-family: Nunito;
+}
