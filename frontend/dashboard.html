@@ -3,6 +3,7 @@
 <head>
     <!--Einbindung eigene Styles-->
     <link rel="stylesheet" href="css/dashboard.css">
+    <link rel="stylesheet" href="css/common.css"
 
     <!--Font Integration Nunito Font-->
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -26,9 +27,19 @@
             </ul>
     </div>
     <div class="content-main-dashboard">
-       
+       <button id="btn-new-tree">Neuen Stammbaum anlegen</button>
+    </div>
+    <div id="overlay-tree"></div>
+    <div id="modal-tree">
+        <h3 class="content-main-dashboard-h3">Neuen Stammbaum anlegen</h3>
+        <input type="text" id="tree-name" placeholder="Name des Stammbaumes" required>
+        <textarea id="tree-desc" rows="4" placeholder="Beschreibung (optional)"></textarea>
+        <div class="content-main-dashboard-modal">
+            <button class="btn-save" id="modal-save-tree">Speichern</button>
+            <button class="btn-cancel" id="modal-cancel-tree">Abbrechen</button>
         </div>
     </div>
+
     <div class="footer-bottom">
 
     </div>
