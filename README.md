@@ -11,3 +11,6 @@ Es sind beides verschiedene Schriftarten, die eine lässt sich nur als Text bess
 ### Farben
 Folgende Farben sind auf der Seite gängig: 
 #56b6b6 und dessen Anpassungen
+
+# Passwort für Datenbank: 
+xKc-rDz3FEXkP5U
