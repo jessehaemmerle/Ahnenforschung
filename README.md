@@ -14,6 +14,7 @@ Moderne, mandantenfähige Stammbaum-Web-App mit Next.js, TypeScript, Tailwind CS
 - Auto-Save, manuelles Speichern, Undo/Redo, Kontextmenü und Tastaturkürzel
 - JSON Import/Export, PNG Export und Druck/PDF-Ausgabe über den Browser
 - Mitgliederverwaltung, Einladungen, Rollenwechsel und Audit-Log
+- Getrennter Adminbereich unter `/admin` für Mitglieder, Einladungen, Audit und Tenant-Einstellungen
 - Quellen- und Medien-API mit Upload-Validierung
 - Plausibilitätsprüfungen für Daten, Eltern-Kind-Beziehungen, Zyklen und Duplikate
 - Dashboard, Tenant-Auswahl, Profil, Einstellungen, Audit-Ansicht und responsive Dark-Mode-UI
@@ -164,6 +165,7 @@ Das Demo-Passwort für die Seed-Benutzer ist `DemoPasswort123`.
 - `VIEWER`: lesen, aber keine Mutationen ausführen
 
 Jede API-Mutation prüft Authentifizierung, Tenant-Zugriff und Rolle.
+Admin-Seiten liegen getrennt unter `/admin/tenants/[tenantId]/...`; normale Kundenansichten unter `/tenants/[tenantId]/...` zeigen keine Admin-Navigation.
 
 ## Editor-Kürzel
 

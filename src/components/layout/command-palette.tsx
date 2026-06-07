@@ -12,7 +12,7 @@ type Tenant = {
   name: string;
 };
 
-export function CommandPalette({ tenants }: { tenants: Tenant[] }) {
+export function CommandPalette({ tenants, adminTenants = [] }: { tenants: Tenant[]; adminTenants?: Tenant[] }) {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
 
@@ -34,12 +34,16 @@ export function CommandPalette({ tenants }: { tenants: Tenant[] }) {
       { label: "Tenants", href: "/tenants" },
       ...tenants.flatMap((tenant) => [
         { label: `${tenant.name}: Stammbäume`, href: `/tenants/${tenant.id}/trees` },
-        { label: `${tenant.name}: Quellen`, href: `/tenants/${tenant.id}/sources` },
-        { label: `${tenant.name}: Mitglieder`, href: `/tenants/${tenant.id}/members` },
-        { label: `${tenant.name}: Audit-Log`, href: `/tenants/${tenant.id}/audit-log` }
+        { label: `${tenant.name}: Quellen`, href: `/tenants/${tenant.id}/sources` }
+      ]),
+      ...adminTenants.flatMap((tenant) => [
+        { label: `${tenant.name}: Admin Mitglieder`, href: `/admin/tenants/${tenant.id}/members` },
+        { label: `${tenant.name}: Admin Einladungen`, href: `/admin/tenants/${tenant.id}/invitations` },
+        { label: `${tenant.name}: Admin Audit-Log`, href: `/admin/tenants/${tenant.id}/audit-log` },
+        { label: `${tenant.name}: Admin Einstellungen`, href: `/admin/tenants/${tenant.id}/settings` }
       ])
     ],
-    [tenants]
+    [adminTenants, tenants]
   );
 
   const filtered = commands.filter((command) => command.label.toLowerCase().includes(query.toLowerCase())).slice(0, 8);

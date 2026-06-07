@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { BookOpen, FileText, GitBranch, LayoutDashboard, Settings, ShieldCheck, UsersRound } from "lucide-react";
+import { BookOpen, FileText, GitBranch, LayoutDashboard, MailPlus, Settings, ShieldCheck, UsersRound } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { cn, initials } from "@/lib/utils";
@@ -20,6 +20,10 @@ type Membership = {
   };
 };
 
+function isAdminRole(role: string) {
+  return role === "ADMIN" || role === "OWNER";
+}
+
 export function AppShell({
   user,
   memberships,
@@ -31,19 +35,41 @@ export function AppShell({
 }) {
   const pathname = usePathname();
   const primaryTenant = memberships[0]?.tenant;
-  const nav = [
+  const adminMemberships = memberships.filter((membership) => isAdminRole(membership.role));
+  const primaryAdminTenant = adminMemberships[0]?.tenant;
+  const isAdminRoute = pathname.startsWith("/admin");
+  const customerNav = [
     { label: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
     { label: "Tenants", href: "/tenants", icon: BookOpen },
     ...(primaryTenant
       ? [
           { label: "Stammbäume", href: `/tenants/${primaryTenant.id}/trees`, icon: GitBranch },
-          { label: "Quellen", href: `/tenants/${primaryTenant.id}/sources`, icon: FileText },
-          { label: "Mitglieder", href: `/tenants/${primaryTenant.id}/members`, icon: UsersRound },
-          { label: "Audit", href: `/tenants/${primaryTenant.id}/audit-log`, icon: ShieldCheck },
-          { label: "Einstellungen", href: `/tenants/${primaryTenant.id}/settings`, icon: Settings }
+          { label: "Quellen", href: `/tenants/${primaryTenant.id}/sources`, icon: FileText }
         ]
       : [])
   ];
+  const adminNav = [
+    { label: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
+    ...(primaryAdminTenant
+      ? [
+          { label: "Mitglieder", href: `/admin/tenants/${primaryAdminTenant.id}/members`, icon: UsersRound },
+          { label: "Einladungen", href: `/admin/tenants/${primaryAdminTenant.id}/invitations`, icon: MailPlus },
+          { label: "Audit", href: `/admin/tenants/${primaryAdminTenant.id}/audit-log`, icon: ShieldCheck },
+          { label: "Einstellungen", href: `/admin/tenants/${primaryAdminTenant.id}/settings`, icon: Settings },
+          { label: "Kundenansicht", href: `/tenants/${primaryAdminTenant.id}/trees`, icon: GitBranch }
+        ]
+      : [])
+  ];
+  const nav = isAdminRoute
+    ? adminNav
+    : [
+        ...customerNav,
+        ...(primaryAdminTenant
+          ? [{ label: "Adminbereich", href: `/admin/tenants/${primaryAdminTenant.id}/members`, icon: ShieldCheck }]
+          : [])
+      ];
+  const mobileNav = nav.slice(0, !isAdminRoute && primaryAdminTenant ? 5 : 4);
+  const isActive = (href: string) => pathname === href || pathname.startsWith(`${href}/`);
 
   return (
     <div className="min-h-screen bg-background">
@@ -60,7 +86,7 @@ export function AppShell({
               href={item.href}
               className={cn(
                 "flex items-center gap-3 rounded-md px-3 py-2 text-sm font-semibold text-muted-foreground hover:bg-accent hover:text-accent-foreground",
-                pathname === item.href && "bg-accent text-accent-foreground"
+                isActive(item.href) && "bg-accent text-accent-foreground"
               )}
             >
               <item.icon className="h-4 w-4" />
@@ -84,7 +110,10 @@ export function AppShell({
       </aside>
       <div className="lg:pl-64">
         <header className="sticky top-0 z-20 flex h-16 items-center justify-between border-b bg-background/90 px-4 backdrop-blur md:px-6">
-          <CommandPalette tenants={memberships.map((membership) => membership.tenant)} />
+          <CommandPalette
+            tenants={memberships.map((membership) => membership.tenant)}
+            adminTenants={adminMemberships.map((membership) => membership.tenant)}
+          />
           <div className="ml-auto flex items-center gap-2">
             <ThemeToggle />
             <Link href="/profile" className="flex items-center gap-2 rounded-md px-2 py-1 hover:bg-accent">
@@ -98,14 +127,14 @@ export function AppShell({
         </header>
         <main className="px-4 pb-20 pt-4 md:px-6 md:pt-6 lg:pb-6">{children}</main>
       </div>
-      <nav className="fixed inset-x-0 bottom-0 z-30 grid grid-cols-4 border-t bg-card lg:hidden">
-        {nav.slice(0, 4).map((item) => (
+      <nav className={cn("fixed inset-x-0 bottom-0 z-30 grid border-t bg-card lg:hidden", mobileNav.length === 5 ? "grid-cols-5" : "grid-cols-4")}>
+        {mobileNav.map((item) => (
           <Link
             key={item.href}
             href={item.href}
             className={cn(
               "flex flex-col items-center gap-1 px-2 py-2 text-[11px] font-semibold text-muted-foreground",
-              pathname === item.href && "text-primary"
+              isActive(item.href) && "text-primary"
             )}
           >
             <item.icon className="h-4 w-4" />
