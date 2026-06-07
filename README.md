@@ -40,6 +40,79 @@ npm run dev
 
 Die App läuft danach unter `http://localhost:3000`.
 
+## Docker-Container starten
+
+Der Docker-Container benötigt eine PostgreSQL-Datenbank. Für den lokalen Betrieb kann die Datenbank aus `docker-compose.yml` verwendet werden:
+
+```bash
+docker compose up -d postgres
+```
+
+Lege anschließend eine Docker-Env-Datei ohne Anführungszeichen an. `host.docker.internal` zeigt aus dem App-Container auf den Host, auf dem PostgreSQL über Port `5432` erreichbar ist.
+
+```bash
+cat > .env.docker <<EOF
+DATABASE_URL=postgresql://postgres:postgres@host.docker.internal:5432/ahnenforschung?schema=public
+NEXTAUTH_URL=http://localhost:3000
+NEXTAUTH_SECRET=$(openssl rand -base64 32)
+GOOGLE_CLIENT_ID=
+GOOGLE_CLIENT_SECRET=
+UPLOAD_DIR=/app/uploads
+MAX_UPLOAD_MB=8
+RATE_LIMIT_WINDOW_MS=60000
+RATE_LIMIT_MAX=120
+EOF
+```
+
+Für echten Login müssen `GOOGLE_CLIENT_ID` und `GOOGLE_CLIENT_SECRET` gesetzt werden. Ohne Google OAuth startet die App, der produktive Login ist dann aber nicht nutzbar.
+
+Baue das Runtime-Image und ein Builder-Image für Prisma-Migrationen:
+
+```bash
+docker build -t ahnenforschung .
+docker build --target builder -t ahnenforschung:builder .
+```
+
+Führe die Datenbankmigrationen aus. Optional können danach Demo-Daten eingespielt werden:
+
+```bash
+docker run --rm \
+  --add-host=host.docker.internal:host-gateway \
+  --env-file .env.docker \
+  ahnenforschung:builder \
+  npx prisma migrate deploy
+
+docker run --rm \
+  --add-host=host.docker.internal:host-gateway \
+  --env-file .env.docker \
+  ahnenforschung:builder \
+  npm run db:seed
+```
+
+Starte danach die App:
+
+```bash
+docker run -d \
+  --name ahnenforschung-app \
+  --add-host=host.docker.internal:host-gateway \
+  --env-file .env.docker \
+  -p 3000:3000 \
+  -v ahnenforschung_uploads:/app/uploads \
+  ahnenforschung
+```
+
+Die App läuft danach unter `http://localhost:3000`.
+
+Nützliche Befehle:
+
+```bash
+docker logs -f ahnenforschung-app
+docker rm -f ahnenforschung-app
+docker compose down
+```
+
+Wenn eine externe PostgreSQL-Datenbank verwendet wird, setze `DATABASE_URL` in `.env.docker` direkt auf diese Datenbank und starte den Compose-Postgres nicht.
+
 ## Environment Variables
 
 Pflicht:
@@ -140,7 +213,9 @@ Für hohe Produktionslast sollte das In-Memory Rate Limiting durch Redis oder ei
 
 ## Deployment
 
-Docker ist vorbereitet:
+Docker ist vorbereitet. Für einen lokalen Container-Start siehe Abschnitt `Docker-Container starten`.
+
+Image bauen:
 
 ```bash
 docker build -t ahnenforschung .
