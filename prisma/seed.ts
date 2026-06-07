@@ -1,35 +1,45 @@
 import { AuditAction, PrismaClient } from "@prisma/client";
 
+import { hashPassword } from "../src/server/security/password";
+
 const prisma = new PrismaClient();
 
 async function main() {
   await prisma.tenant.deleteMany({ where: { slug: "demo-familie" } });
 
+  const demoPassword = "DemoPasswort123";
+  const ownerPasswordHash = await hashPassword(demoPassword);
+  const editorPasswordHash = await hashPassword(demoPassword);
+  const viewerPasswordHash = await hashPassword(demoPassword);
+
   const owner = await prisma.user.upsert({
     where: { email: "owner.demo@example.test" },
-    update: {},
+    update: { emailVerified: new Date(), passwordHash: ownerPasswordHash },
     create: {
       email: "owner.demo@example.test",
       name: "Demo Owner",
-      emailVerified: new Date()
+      emailVerified: new Date(),
+      passwordHash: ownerPasswordHash
     }
   });
   const editor = await prisma.user.upsert({
     where: { email: "editor.demo@example.test" },
-    update: {},
+    update: { emailVerified: new Date(), passwordHash: editorPasswordHash },
     create: {
       email: "editor.demo@example.test",
       name: "Demo Editor",
-      emailVerified: new Date()
+      emailVerified: new Date(),
+      passwordHash: editorPasswordHash
     }
   });
   const viewer = await prisma.user.upsert({
     where: { email: "viewer.demo@example.test" },
-    update: {},
+    update: { emailVerified: new Date(), passwordHash: viewerPasswordHash },
     create: {
       email: "viewer.demo@example.test",
       name: "Demo Viewer",
-      emailVerified: new Date()
+      emailVerified: new Date(),
+      passwordHash: viewerPasswordHash
     }
   });
 
@@ -375,6 +385,7 @@ async function main() {
   });
 
   console.log(`Seed abgeschlossen: Tenant ${tenant.name} (${tenant.id}), Stammbaum ${tree.id}`);
+  console.log(`Demo-Login: owner.demo@example.test / ${demoPassword}`);
 }
 
 main()

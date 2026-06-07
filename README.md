@@ -4,8 +4,7 @@ Moderne, mandantenfähige Stammbaum-Web-App mit Next.js, TypeScript, Tailwind CS
 
 ## Features
 
-- Google OAuth Login mit NextAuth und Prisma-Adapter
-- Optionaler Magic-Link Login per SMTP
+- Eigener Login und Registrierung mit E-Mail-Adresse und Passwort
 - Automatische Tenant-Erstellung beim ersten Login
 - Echtes Tenant-Modell mit `OWNER`, `ADMIN`, `EDITOR`, `VIEWER`
 - Tenant-isolierte Stammbaum-, Personen-, Beziehungs-, Quellen-, Medien- und Audit-Daten
@@ -24,7 +23,6 @@ Moderne, mandantenfähige Stammbaum-Web-App mit Next.js, TypeScript, Tailwind CS
 - Node.js 22 oder neuer
 - npm 10 oder neuer
 - PostgreSQL 16 oder neuer
-- Google OAuth Client für produktiven Login
 
 ## Lokaler Start
 
@@ -55,16 +53,12 @@ cat > .env.docker <<EOF
 DATABASE_URL=postgresql://postgres:postgres@host.docker.internal:5432/ahnenforschung?schema=public
 NEXTAUTH_URL=http://localhost:3000
 NEXTAUTH_SECRET=$(openssl rand -base64 32)
-GOOGLE_CLIENT_ID=
-GOOGLE_CLIENT_SECRET=
 UPLOAD_DIR=/app/uploads
 MAX_UPLOAD_MB=8
 RATE_LIMIT_WINDOW_MS=60000
 RATE_LIMIT_MAX=120
 EOF
 ```
-
-Für echten Login müssen `GOOGLE_CLIENT_ID` und `GOOGLE_CLIENT_SECRET` gesetzt werden. Ohne Google OAuth startet die App, der produktive Login ist dann aber nicht nutzbar.
 
 Baue das Runtime-Image und ein Builder-Image für Prisma-Migrationen:
 
@@ -120,12 +114,9 @@ Pflicht:
 - `DATABASE_URL`: PostgreSQL-Verbindung
 - `NEXTAUTH_URL`: lokale oder produktive Basis-URL
 - `NEXTAUTH_SECRET`: mindestens 32 zufällige Bytes
-- `GOOGLE_CLIENT_ID`: Google OAuth Client ID
-- `GOOGLE_CLIENT_SECRET`: Google OAuth Secret
 
 Optional:
 
-- `EMAIL_SERVER_HOST`, `EMAIL_SERVER_PORT`, `EMAIL_SERVER_USER`, `EMAIL_SERVER_PASSWORD`, `EMAIL_FROM`
 - `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASSWORD`, `SMTP_FROM`
 - `UPLOAD_DIR`
 - `MAX_UPLOAD_MB`
@@ -163,7 +154,7 @@ Der Seed erstellt:
 - Beispiel-Stammbaum `Chronik der Familie Morgenstern`
 - mehrere Generationen, Beziehungen, Quellen, Medienmetadaten, Custom Field und Audit-Logs
 
-Die Demo-Benutzer sind Datenbank-Testdaten. Für echten Login wird Google OAuth oder optional Magic Link benötigt.
+Das Demo-Passwort für die Seed-Benutzer ist `DemoPasswort123`.
 
 ## Rollenmodell
 
@@ -198,8 +189,9 @@ Enthalten sind Tests für:
 
 ## Security-Hinweise
 
-- Authentifizierung über NextAuth mit OAuth/Magic Link
-- Sessions werden serverseitig über Prisma verwaltet
+- Authentifizierung über NextAuth Credentials mit E-Mail-Adresse und Passwort
+- Passwörter werden mit gesalzenem Scrypt-Hash gespeichert
+- Sessions werden als signierte JWTs verwaltet
 - Prisma schützt vor SQL Injection
 - Zod validiert API-Eingaben
 - React escaped UI-Ausgaben standardmäßig gegen XSS
@@ -235,4 +227,4 @@ Für Produktion:
 - S3-kompatibler Medienspeicher
 - E-Mail-Templates und Zustellstatus
 - 2FA-Flow
-- E2E-Tests für OAuth-Strecken mit Playwright
+- E2E-Tests für Login und Registrierung mit Playwright

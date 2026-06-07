@@ -1,20 +1,14 @@
-import { PrismaAdapter } from "@next-auth/prisma-adapter";
 import type { NextAuthOptions } from "next-auth";
-import EmailProvider from "next-auth/providers/email";
-import GoogleProvider from "next-auth/providers/google";
+import CredentialsProvider from "next-auth/providers/credentials";
 
 import { prisma } from "@/server/db";
 import { ensureDefaultTenantForUser } from "@/server/auth/onboarding";
-
-const hasGoogle = Boolean(process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET);
-const hasEmail =
-  Boolean(process.env.EMAIL_SERVER_HOST && process.env.EMAIL_FROM) &&
-  Boolean(process.env.EMAIL_SERVER_USER || process.env.EMAIL_SERVER_PASSWORD);
+import { verifyPassword } from "@/server/security/password";
+import { loginSchema } from "@/server/validators/auth";
 
 export const authOptions: NextAuthOptions = {
-  adapter: PrismaAdapter(prisma),
   session: {
-    strategy: "database",
+    strategy: "jwt",
     maxAge: 60 * 60 * 24 * 30,
     updateAge: 60 * 60 * 24
   },
@@ -22,31 +16,53 @@ export const authOptions: NextAuthOptions = {
     signIn: "/login"
   },
   providers: [
-    GoogleProvider({
-      clientId: process.env.GOOGLE_CLIENT_ID || "missing-google-client-id",
-      clientSecret: process.env.GOOGLE_CLIENT_SECRET || "missing-google-client-secret",
-      allowDangerousEmailAccountLinking: false
-    }),
-    ...(hasEmail
-      ? [
-          EmailProvider({
-            server: {
-              host: process.env.EMAIL_SERVER_HOST,
-              port: Number(process.env.EMAIL_SERVER_PORT ?? 587),
-              auth: {
-                user: process.env.EMAIL_SERVER_USER,
-                pass: process.env.EMAIL_SERVER_PASSWORD
-              }
-            },
-            from: process.env.EMAIL_FROM
-          })
-        ]
-      : [])
+    CredentialsProvider({
+      name: "E-Mail und Passwort",
+      credentials: {
+        email: { label: "E-Mail", type: "email" },
+        password: { label: "Passwort", type: "password" }
+      },
+      async authorize(credentials) {
+        const parsed = loginSchema.safeParse(credentials);
+        if (!parsed.success) return null;
+
+        const user = await prisma.user.findUnique({
+          where: { email: parsed.data.email },
+          select: {
+            id: true,
+            name: true,
+            email: true,
+            image: true,
+            passwordHash: true
+          }
+        });
+
+        if (!user || !(await verifyPassword(parsed.data.password, user.passwordHash))) {
+          return null;
+        }
+
+        return {
+          id: user.id,
+          name: user.name,
+          email: user.email,
+          image: user.image
+        };
+      }
+    })
   ],
   callbacks: {
-    async session({ session, user }) {
-      if (session.user) {
-        session.user.id = user.id;
+    async jwt({ token, user }) {
+      if (user) {
+        token.id = user.id;
+        token.name = user.name;
+        token.email = user.email;
+        token.picture = user.image;
+      }
+      return token;
+    },
+    async session({ session, token }) {
+      if (session.user && typeof token.id === "string") {
+        session.user.id = token.id;
       }
       return session;
     }
@@ -73,7 +89,7 @@ export const authOptions: NextAuthOptions = {
               action: "LOGIN",
               entityType: "User",
               entityId: user.id,
-              metadata: { provider: hasGoogle ? "oauth_or_email" : "email" }
+              metadata: { provider: "credentials" }
             }
           });
         }
@@ -82,9 +98,4 @@ export const authOptions: NextAuthOptions = {
   },
   secret: process.env.NEXTAUTH_SECRET,
   debug: process.env.NODE_ENV === "development"
-};
-
-export const authProviderState = {
-  hasGoogle,
-  hasEmail
 };
