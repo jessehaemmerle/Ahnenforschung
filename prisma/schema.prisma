@@ -1,0 +1,461 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum TenantRole {
+  OWNER
+  ADMIN
+  EDITOR
+  VIEWER
+}
+
+enum Gender {
+  UNKNOWN
+  MALE
+  FEMALE
+  DIVERSE
+}
+
+enum PrivacyStatus {
+  TENANT
+  PRIVATE
+  ADMINS
+}
+
+enum RelationshipType {
+  MARRIAGE
+  PARTNERSHIP
+  DIVORCED
+  ENGAGEMENT
+  PARENT_OF
+  SON_OF
+  DAUGHTER_OF
+  CHILD_OF
+  ADOPTED_CHILD
+  STEPCHILD
+  SIBLING
+  HALF_SIBLING
+  GUARDIANSHIP
+  OTHER
+}
+
+enum RelationshipStatus {
+  ACTIVE
+  ENDED
+  UNKNOWN
+}
+
+enum AuditAction {
+  LOGIN
+  TENANT_CREATED
+  FAMILY_TREE_CREATED
+  FAMILY_TREE_UPDATED
+  FAMILY_TREE_DELETED
+  PERSON_CREATED
+  PERSON_UPDATED
+  PERSON_DELETED
+  RELATIONSHIP_CREATED
+  RELATIONSHIP_UPDATED
+  RELATIONSHIP_DELETED
+  INVITATION_CREATED
+  INVITATION_ACCEPTED
+  ROLE_CHANGED
+  MEDIA_UPLOADED
+  SOURCE_CREATED
+  IMPORT_COMPLETED
+  EXPORT_COMPLETED
+}
+
+enum InvitationStatus {
+  PENDING
+  ACCEPTED
+  REVOKED
+  EXPIRED
+}
+
+enum MediaKind {
+  IMAGE
+  DOCUMENT
+  OTHER
+}
+
+enum CustomFieldEntity {
+  PERSON
+  RELATIONSHIP
+}
+
+model User {
+  id            String    @id @default(cuid())
+  name          String?
+  email         String?   @unique
+  emailVerified DateTime?
+  image         String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  accounts              Account[]
+  sessions              Session[]
+  memberships           TenantMembership[] @relation("MembershipUser")
+  invitedMemberships    TenantMembership[] @relation("MembershipInviter")
+  invitationsSent       Invitation[]       @relation("InvitationInviter")
+  familyTreesCreated    FamilyTree[]       @relation("FamilyTreeCreator")
+  familyTreesUpdated    FamilyTree[]       @relation("FamilyTreeUpdater")
+  peopleCreated         PersonNode[]       @relation("PersonCreator")
+  peopleUpdated         PersonNode[]       @relation("PersonUpdater")
+  relationshipsCreated  Relationship[]     @relation("RelationshipCreator")
+  relationshipsUpdated  Relationship[]     @relation("RelationshipUpdater")
+  mediaFiles            MediaFile[]        @relation("MediaUploader")
+  auditLogs             AuditLog[]         @relation("AuditActor")
+}
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? @db.Text
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+  @@index([userId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
+
+model Tenant {
+  id          String    @id @default(cuid())
+  name        String
+  slug        String    @unique
+  description String?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  deletedAt   DateTime?
+
+  memberships            TenantMembership[]
+  familyTrees            FamilyTree[]
+  people                 PersonNode[]
+  relationships          Relationship[]
+  events                 PersonEvent[]
+  invitations            Invitation[]
+  mediaFiles             MediaFile[]
+  sources                Source[]
+  auditLogs              AuditLog[]
+  customFieldDefinitions CustomFieldDefinition[]
+  customFieldValues      CustomFieldValue[]
+
+  @@index([slug])
+  @@index([deletedAt])
+}
+
+model TenantMembership {
+  id          String     @id @default(cuid())
+  tenantId    String
+  userId      String
+  role        TenantRole @default(VIEWER)
+  invitedById String?
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+
+  tenant    Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  user      User   @relation("MembershipUser", fields: [userId], references: [id], onDelete: Cascade)
+  invitedBy User?  @relation("MembershipInviter", fields: [invitedById], references: [id], onDelete: SetNull)
+
+  @@unique([tenantId, userId])
+  @@index([tenantId, role])
+  @@index([userId])
+}
+
+model FamilyTree {
+  id          String    @id @default(cuid())
+  tenantId    String
+  name        String
+  slug        String
+  description String?
+  createdById String
+  updatedById String?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  deletedAt   DateTime?
+
+  tenant      Tenant         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  createdBy   User           @relation("FamilyTreeCreator", fields: [createdById], references: [id], onDelete: Restrict)
+  updatedBy   User?          @relation("FamilyTreeUpdater", fields: [updatedById], references: [id], onDelete: SetNull)
+  people      PersonNode[]
+  relationships Relationship[]
+  events      PersonEvent[]
+  sources     Source[]
+  mediaFiles  MediaFile[]
+  customFieldDefinitions CustomFieldDefinition[]
+
+  @@unique([tenantId, slug])
+  @@index([tenantId, updatedAt])
+  @@index([tenantId, deletedAt])
+}
+
+model PersonNode {
+  id             String        @id @default(cuid())
+  tenantId       String
+  treeId         String
+  firstName      String
+  lastName       String
+  birthName      String?
+  gender         Gender        @default(UNKNOWN)
+  birthDate      DateTime?
+  birthPlace     String?
+  deathDate      DateTime?
+  deathPlace     String?
+  biography      String?       @db.Text
+  profession     String?
+  address        String?
+  originPlace    String?
+  profileImageUrl String?
+  privacy        PrivacyStatus @default(TENANT)
+  tags           Json          @default("[]")
+  customData     Json          @default("{}")
+  x              Float         @default(0)
+  y              Float         @default(0)
+  createdById    String
+  updatedById    String?
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+  deletedAt      DateTime?
+
+  tenant        Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  tree          FamilyTree    @relation(fields: [treeId], references: [id], onDelete: Cascade)
+  createdBy     User          @relation("PersonCreator", fields: [createdById], references: [id], onDelete: Restrict)
+  updatedBy     User?         @relation("PersonUpdater", fields: [updatedById], references: [id], onDelete: SetNull)
+  outgoingRelationships Relationship[] @relation("RelationshipSource")
+  incomingRelationships Relationship[] @relation("RelationshipTarget")
+  events        PersonEvent[]
+  sources       Source[]
+  mediaFiles    MediaFile[]
+  customValues  CustomFieldValue[]
+
+  @@index([tenantId, treeId])
+  @@index([tenantId, lastName])
+  @@index([tenantId, birthDate])
+  @@index([tenantId, deletedAt])
+}
+
+model Relationship {
+  id             String             @id @default(cuid())
+  tenantId       String
+  treeId         String
+  sourcePersonId String
+  targetPersonId String
+  type           RelationshipType
+  status         RelationshipStatus @default(UNKNOWN)
+  startDate      DateTime?
+  endDate        DateTime?
+  place          String?
+  description    String?            @db.Text
+  sourceNote     String?
+  privacy        PrivacyStatus      @default(TENANT)
+  metadata       Json               @default("{}")
+  createdById    String
+  updatedById    String?
+  createdAt      DateTime           @default(now())
+  updatedAt      DateTime           @updatedAt
+  deletedAt      DateTime?
+
+  tenant       Tenant     @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  tree         FamilyTree @relation(fields: [treeId], references: [id], onDelete: Cascade)
+  sourcePerson PersonNode @relation("RelationshipSource", fields: [sourcePersonId], references: [id], onDelete: Restrict)
+  targetPerson PersonNode @relation("RelationshipTarget", fields: [targetPersonId], references: [id], onDelete: Restrict)
+  createdBy    User       @relation("RelationshipCreator", fields: [createdById], references: [id], onDelete: Restrict)
+  updatedBy    User?      @relation("RelationshipUpdater", fields: [updatedById], references: [id], onDelete: SetNull)
+  sources      Source[]
+  customValues CustomFieldValue[]
+
+  @@index([tenantId, treeId])
+  @@index([tenantId, type])
+  @@index([sourcePersonId])
+  @@index([targetPersonId])
+  @@index([tenantId, deletedAt])
+}
+
+model PersonEvent {
+  id          String    @id @default(cuid())
+  tenantId    String
+  treeId      String
+  personId    String
+  type        String
+  title       String
+  eventDate   DateTime?
+  place       String?
+  description String?   @db.Text
+  source      String?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  deletedAt   DateTime?
+
+  tree   FamilyTree @relation(fields: [treeId], references: [id], onDelete: Cascade)
+  tenant Tenant     @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  person PersonNode @relation(fields: [personId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, treeId, eventDate])
+  @@index([personId])
+}
+
+model Source {
+  id             String    @id @default(cuid())
+  tenantId       String
+  treeId         String
+  personId       String?
+  relationshipId String?
+  mediaFileId    String?
+  title          String
+  type           String
+  citation       String?   @db.Text
+  url            String?
+  notes          String?   @db.Text
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+  deletedAt      DateTime?
+
+  tenant       Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  tree         FamilyTree   @relation(fields: [treeId], references: [id], onDelete: Cascade)
+  person       PersonNode?  @relation(fields: [personId], references: [id], onDelete: Cascade)
+  relationship Relationship? @relation(fields: [relationshipId], references: [id], onDelete: Cascade)
+  mediaFile    MediaFile?   @relation(fields: [mediaFileId], references: [id], onDelete: SetNull)
+
+  @@index([tenantId, treeId])
+  @@index([personId])
+  @@index([relationshipId])
+}
+
+model MediaFile {
+  id          String    @id @default(cuid())
+  tenantId    String
+  treeId      String?
+  personId    String?
+  uploaderId  String
+  kind        MediaKind @default(OTHER)
+  filename    String
+  contentType String
+  size        Int
+  storageKey  String
+  checksum    String?
+  createdAt   DateTime  @default(now())
+  deletedAt   DateTime?
+
+  tenant   Tenant      @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  tree     FamilyTree? @relation(fields: [treeId], references: [id], onDelete: Cascade)
+  person   PersonNode? @relation(fields: [personId], references: [id], onDelete: Cascade)
+  uploader User        @relation("MediaUploader", fields: [uploaderId], references: [id], onDelete: Restrict)
+  sources  Source[]
+
+  @@index([tenantId, treeId])
+  @@index([tenantId, personId])
+}
+
+model AuditLog {
+  id         String      @id @default(cuid())
+  tenantId   String
+  actorId    String?
+  action     AuditAction
+  entityType String
+  entityId   String?
+  metadata   Json        @default("{}")
+  ipAddress  String?
+  userAgent  String?
+  createdAt  DateTime    @default(now())
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  actor  User?  @relation("AuditActor", fields: [actorId], references: [id], onDelete: SetNull)
+
+  @@index([tenantId, createdAt])
+  @@index([tenantId, action])
+}
+
+model Invitation {
+  id          String           @id @default(cuid())
+  tenantId    String
+  email       String
+  role        TenantRole       @default(VIEWER)
+  tokenHash   String           @unique
+  status      InvitationStatus @default(PENDING)
+  invitedById String
+  expiresAt   DateTime
+  acceptedAt  DateTime?
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+
+  tenant    Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  invitedBy User   @relation("InvitationInviter", fields: [invitedById], references: [id], onDelete: Restrict)
+
+  @@index([tenantId, email])
+  @@index([tenantId, status])
+}
+
+model CustomFieldDefinition {
+  id        String            @id @default(cuid())
+  tenantId  String
+  treeId    String?
+  entity    CustomFieldEntity
+  key       String
+  label     String
+  fieldType String
+  options   Json              @default("[]")
+  required  Boolean           @default(false)
+  privacy   PrivacyStatus     @default(TENANT)
+  createdAt DateTime          @default(now())
+  updatedAt DateTime          @updatedAt
+
+  tenant Tenant      @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  tree   FamilyTree? @relation(fields: [treeId], references: [id], onDelete: Cascade)
+  values CustomFieldValue[]
+
+  @@unique([tenantId, treeId, key, entity])
+  @@index([tenantId, entity])
+}
+
+model CustomFieldValue {
+  id             String   @id @default(cuid())
+  tenantId       String
+  definitionId   String
+  personId       String?
+  relationshipId String?
+  value          Json
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  tenant       Tenant                @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  definition   CustomFieldDefinition @relation(fields: [definitionId], references: [id], onDelete: Cascade)
+  person       PersonNode?           @relation(fields: [personId], references: [id], onDelete: Cascade)
+  relationship Relationship?         @relation(fields: [relationshipId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, definitionId])
+  @@index([personId])
+  @@index([relationshipId])
+}
